@@ -28,14 +28,25 @@ std::string hasData(std::string s) {
   return "";
 }
 
-int main()
+int main(int argc, char *argv[])
 {
   uWS::Hub h;
 
+  // 0.125 0.0 3
+  double Kp = atof(argv[1]);
+  double Ki = atof(argv[2]);
+  double Kd = atof(argv[3]);
+
+  double target_speed = 0.3;
+  if (argc > 4) {
+    target_speed = atof(argv[4]);
+  }
+
   PID pid;
   // TODO: Initialize the pid variable.
+  pid.Init(Kp, Ki, Kd);
 
-  h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  h.onMessage([&pid,&target_speed](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -49,7 +60,7 @@ int main()
           // j[1] is the data JSON object
           double cte = std::stod(j[1]["cte"].get<std::string>());
           double speed = std::stod(j[1]["speed"].get<std::string>());
-          double angle = std::stod(j[1]["steering_angle"].get<std::string>());
+          //double angle = std::stod(j[1]["steering_angle"].get<std::string>());
           double steer_value;
           /*
           * TODO: Calcuate steering value here, remember the steering value is
@@ -57,13 +68,16 @@ int main()
           * NOTE: Feel free to play around with the throttle and speed. Maybe use
           * another PID controller to control the speed!
           */
-          
+
+          pid.UpdateError(cte);
+          steer_value = pid.TotalError();
+
           // DEBUG
-          std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
+          std::cout << "CTE: " << cte << " Steering Value: " << steer_value << " speed: " << speed << std::endl;
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = 0.3;
+          msgJson["throttle"] = target_speed;
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
